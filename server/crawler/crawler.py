@@ -81,7 +81,10 @@ def check_kaggle_page(url):
     if any(symbol in url for symbol in ['#', '?', '%']):
         return None
     
-    if url.endswith(('/discussions', '/code', '/suggestions')):
+    if url.endswith(('/discussions', '/code', '/suggestions', '/competitions')):
+        return None
+    
+    if '/discussion' in url:
         return None
 
     # Classify URL based on the type of page on Kaggle
@@ -95,13 +98,20 @@ def check_kaggle_page(url):
         return 'home'
     else:
         return None
+    
+# Function to check if it is useful geeksforgeeks page
+def check_geeksforgeeks_page(url):
+    if '?' in url or '#' in url:
+        return None
+    else:
+        return 'article'
 
 # Set up Selenium WebDriver
 PATH = os.getenv('DRIVER_PATH')
 chrome_options = Options()
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--headless")
 service = Service(PATH)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
@@ -115,6 +125,8 @@ def crawl_page(start_url, max_depth):
     while queue:
         url, depth = queue.popleft()  # Get the next URL and its depth
 
+        print(f"Crawling {url} at depth {depth}")
+
         # If max depth is reached, skip further crawling from this URL
         if depth > max_depth:
             continue
@@ -125,7 +137,10 @@ def crawl_page(start_url, max_depth):
         visited_links.add(url)  # Mark this URL as visited
 
         # Check if the page matches a specific category; skip if it doesn't
-        if check_kaggle_page(url) is None:
+        # if check_kaggle_page(url) is None:
+        #     continue
+
+        if check_geeksforgeeks_page(url) is None:
             continue
 
         # Open the page with Selenium
@@ -167,8 +182,8 @@ def crawl_page(start_url, max_depth):
 
 # Initialize the database and start crawling
 setup_database()
-start_url = 'https://kaggle.com'
-crawl_page(start_url, max_depth=3)
+start_url = 'https://www.geeksforgeeks.org/machine-learning/'
+crawl_page(start_url, max_depth=5)
 
 # Close the WebDriver after crawling
 driver.quit()
