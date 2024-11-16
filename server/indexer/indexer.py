@@ -11,7 +11,7 @@ import os
 def fetch_all_pages():
     conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT url, description FROM resources")
+    cursor.execute("SELECT url, description FROM resources WHERE summary IS NULL OR summary = ''")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -31,7 +31,7 @@ def setup_driver():
 def fetch_page_body(url, driver):
     driver.get(url)
     time.sleep(5)  # Wait for the page to load completely
-    body = driver.find_element(By.TAG_NAME, 'body').text # Extract the text of the body tag
+    body = driver.find_element(By.TAG_NAME, 'body').text  # Extract the text of the body tag
     return body
 
 # Index and store summaries with TF-IDF
@@ -45,15 +45,18 @@ def generate_summaries():
     # Generate TF-IDF vectors for page descriptions and body content
     vectorizer = TfidfVectorizer(max_features=30, stop_words='english')
 
-    summaries = []
-    for url in urls:
+    # Open database connection
+    conn = sqlite3.connect('../database.db')
+    cursor = conn.cursor()
+
+    for url, description in zip(urls, descriptions):
         try:
             print(f"Processing URL: {url}")
             # Fetch the page body content
             page_body = fetch_page_body(url, driver)
 
             # Combine the description and page body for better results
-            full_content = descriptions[urls.index(url)] + " " + page_body
+            full_content = (description or '') + " " + page_body
 
             # Apply TF-IDF vectorizer to the full content (description + body)
             tfidf_matrix = vectorizer.fit_transform([full_content])
@@ -62,23 +65,22 @@ def generate_summaries():
             terms = vectorizer.get_feature_names_out()
             sorted_terms = [terms[i] for i in tfidf_matrix[0].indices]
             summary = " ".join(sorted_terms[:20])  # Take top 20 words as summary
-            summaries.append((url, summary))
+
+            # Update the summary in the database immediately
+            cursor.execute("UPDATE resources SET summary = ? WHERE url = ?", (summary, url))
+            conn.commit()
+            print(f"Updated summary for {url}")
 
         except Exception as e:
             print(f"Error processing {url}: {e}")
-            summaries.append((url, ''))  # If error occurs, assign empty summary
+            # Update the summary with an empty value in case of error
+            cursor.execute("UPDATE resources SET summary = ? WHERE url = ?", ('', url))
+            conn.commit()
 
-    # Update summaries in the database
-    conn = sqlite3.connect('../database.db')
-    cursor = conn.cursor()
-    for url, summary in summaries:
-        cursor.execute("UPDATE resources SET summary = ? WHERE url = ?", (summary, url))
-    conn.commit()
+    # Close the database connection and driver
     conn.close()
-    print("Summaries updated successfully.")
-
-    # Close the driver after all operations
     driver.quit()
+    print("Summaries updated successfully.")
 
 # Run the indexer to generate summaries
 generate_summaries()

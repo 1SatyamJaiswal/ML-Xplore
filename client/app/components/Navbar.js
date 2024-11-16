@@ -1,22 +1,34 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 export default function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
   const router = useRouter();
 
+  useEffect(() => {
+    const token = Cookies.get("token");
+    if (token) {
+      setIsLoggedIn(true);
+    }
+    const darkMode = localStorage.getItem("darkMode");
+    if (darkMode) {
+      setDarkMode(darkMode);
+      document.documentElement.classList.add("dark");
+    }
+  }, []);
+
   const handleLogout = () => {
-    // Implement actual logout logic
+    Cookies.remove("token");
+    Cookies.remove("user");
     setIsLoggedIn(false);
-    router.push("/");
-    // Add logout functionality like clearing tokens, etc.
   };
 
   const handleProfileClick = () => {
-    // Implement profile navigation or modal
+    router.push("/profile");
     console.log("Profile clicked");
   };
 

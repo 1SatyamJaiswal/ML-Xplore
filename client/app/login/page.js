@@ -2,58 +2,76 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavbarLogin from "../components/NavbarLogin";
+import Cookies from "js-cookie";
+import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
+  const handleSubmit = async (e) => {
     // Basic validation
     if (!email || !password) {
-      setError("Please enter both email and password");
+      toast.error("Please enter both email and password");
       return;
     }
 
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
+      toast.error("Please enter a valid email address");
       return;
     }
 
     // Basic password length check
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      toast.error("Password must be at least 6 characters long");
       return;
     }
 
-    // If validation passes, clear error and proceed
-    setError("");
-
-    // Mock login (replace with actual authentication later)
     try {
-      // Simulate successful login
-      localStorage.setItem("isLoggedIn", "true");
+      const loginData = {
+        email,
+        password
+      }
+
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/login`, loginData);
+
+      // Set token in cookie
+      Cookies.set("token", response.data.token);
+      Cookies.set("user", response.data.user);
+
+      toast.success("Login successful");
+      
       router.push("/"); // Redirect to home page
     } catch (err) {
-      setError("Login failed. Please try again.");
+      toast.error("Login failed. Please try again.");
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Placeholder for Google OAuth
-    // In a real app, this would trigger Google authentication
-    console.log("Initiating Google Login");
-    // You'll implement the actual Google auth flow later
-  };
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/google`
+      );
+
+      // Set token in cookie
+      Cookies.set("token", response.data.token);
+
+      toast.success("Login successful");
+
+      router.push("/"); // Redirect to home page
+    } catch (err) {
+      toast.error("Login failed. Please try again.");
+    }
+  }
 
   return (
     <>
       <NavbarLogin />
+      <ToastContainer />
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
           <div>
@@ -61,7 +79,7 @@ export default function LoginPage() {
               Sign in to ML-Xplore
             </h2>
           </div>
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="mt-8 space-y-6">
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
                 <label htmlFor="email" className="sr-only">
@@ -101,13 +119,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
-              <div className="text-red-500 text-sm text-center">{error}</div>
-            )}
-
             <div>
               <button
                 type="submit"
+                onClick={handleSubmit}
                 className="group relative w-full flex justify-center py-2 px-4 
               border border-transparent text-sm font-medium rounded-md text-white 
               bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
@@ -116,7 +131,7 @@ export default function LoginPage() {
                 Sign in
               </button>
             </div>
-          </form>
+          </div>
 
           <div className="mt-4">
             <div className="relative">
