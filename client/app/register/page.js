@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import NavbarLogin from "../components/NavbarLogin";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { Toast, ToastContainer } from "react-toastify/dist/components";
+import { ToastContainer } from "react-toastify";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
