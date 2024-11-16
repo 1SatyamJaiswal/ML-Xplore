@@ -313,4 +313,4 @@ def get_user_history():
 # Run Flask app
 if __name__ == "__main__":
     CORS(app)
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
