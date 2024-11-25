@@ -1,8 +1,16 @@
 import sqlite3
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+DATABASE_PATH = os.getenv('DATABASE_PATH', './database.db')
+
+DATABASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DATABASE_PATH))
 
 # Function to fetch all links from the database
 def fetch_links():
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT source_url, destination_url FROM links")
     links = cursor.fetchall()
@@ -49,7 +57,7 @@ def calculate_pagerank(links, damping_factor=0.85, iterations=20):
 
 # Function to store the PageRank scores in the database
 def store_pagerank(pagerank):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     for url, score in pagerank.items():
         cursor.execute("UPDATE resources SET popularity_score = ? WHERE url = ?", (score, url))

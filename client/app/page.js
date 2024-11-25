@@ -6,7 +6,6 @@ import axios from "axios";
 import Navbar from "./components/Navbar";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import { Content } from "next/font/google";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,20 +13,29 @@ export default function Home() {
   const [id, setId] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [search, setSearch] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]); // Track selected tags for filtering
   const router = useRouter();
 
-  // Fetch search results only when the query is valid
+  // Fetch search results when query or tags change
   const handleSearch = async (query) => {
-    if (!query) {
-      setSearchResults([]); // Clear results if the query is empty
-      fetchRecommendations(id);
-      setSearch(false);
-      return;
-    }
-
+    const effectiveQuery = query || "";
+    
     try {
+      if (!effectiveQuery && selectedTags.length === 0) {
+        // If no query and no tags, fetch recommendations
+        fetchRecommendations(id);
+        setSearch(false);
+        return;
+      }
+
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/search?query=${query}`
+        `${process.env.NEXT_PUBLIC_API_URL}/search`,
+        {
+          params: {
+            query: effectiveQuery,
+            tags: selectedTags,  // Include the selected tags for filtering
+          },
+        }
       );
       setSearchResults(response.data);
       setSearch(true);
@@ -37,10 +45,15 @@ export default function Home() {
     }
   };
 
+  // Trigger search when tags change
+  useEffect(() => {
+    handleSearch(searchQuery);
+  }, [selectedTags]);
+
   useEffect(() => {
     const token = Cookies.get("token");
-    if (token) {
-      const user = Cookies.get("user");
+    const user = Cookies.get("user");
+    if (token && user) {
       const user_info = user.split(",");
       setEmail(user_info[1]);
       setId(user_info[0]);
@@ -70,7 +83,23 @@ export default function Home() {
       console.error("Error fetching recommendations:", error);
       setSearchResults([]); // Handle error gracefully by clearing results
     }
-  };  
+  };
+
+  // Handle change in tag selection
+  const handleTagChange = (event) => {
+    const { value, checked } = event.target;
+    setSelectedTags((prevTags) =>
+      checked ? [...prevTags, value] : prevTags.filter((tag) => tag !== value)
+    );
+  };
+
+  // Tag configuration for easier management
+  const TAG_OPTIONS = [
+    { value: "dataset", label: "Dataset" },
+    { value: "model", label: "Model" },
+    { value: "article", label: "Article" },
+    { value: "research paper", label: "Research Paper" }
+  ];
 
   return (
     <>
@@ -89,10 +118,32 @@ export default function Home() {
             />
           </div>
 
+          {/* Improved Tag Filters */}
+          <div className="mb-8">
+            <h2 className="text-lg font-medium mb-4">Filter by Tags</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {TAG_OPTIONS.map((tag) => (
+                <label 
+                  key={tag.value} 
+                  className="flex items-center space-x-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    value={tag.value}
+                    checked={selectedTags.includes(tag.value)}
+                    onChange={handleTagChange}
+                    className="form-checkbox text-blue-600 dark:text-blue-500 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">{tag.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           {searchResults.length > 0 && (
             <div className="mt-6">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                {search ? `Search Results ${searchResults.length} found` : "Recommendations"}
+                {search ? `Search Results: ${searchResults.length} found` : "Recommendations"}
               </p>
               <ul>
                 {searchResults.map((result) => (

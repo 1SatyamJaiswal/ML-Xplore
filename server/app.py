@@ -4,15 +4,20 @@ from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
 import sqlite3
 import jwt # type: ignore
 import os
+from dotenv import load_dotenv
 import datetime
+
+load_dotenv()
 
 app = Flask(__name__)
 
 JWT_SECRET = "secret"
 
+DATABASE_PATH = os.getenv('DATABASE_PATH')
+
 # Function to fetch all resources
 def fetch_all_resources():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT id, url, title, description, summary FROM resources")
     resources = cursor.fetchall()
@@ -20,10 +25,20 @@ def fetch_all_resources():
     return resources
 
 # Function to search resources based on the user's query
-def search_resources(query):
-    conn = sqlite3.connect('database.db')
+def search_resources(query, tags_filter=None):
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT description, summary, url, title, tags, popularity_score FROM resources")
+
+    print(tags_filter)
+
+    # Build the SQL query based on the provided tags filter
+    sql_query = "SELECT description, summary, url, title, tags, popularity_score FROM resources"
+    if tags_filter:
+        # Join the tags list into a string for filtering purposes
+        tags_condition = " OR ".join([f"tags LIKE '%{tag}%'" for tag in tags_filter])
+        sql_query += " WHERE " + tags_condition
+
+    cursor.execute(sql_query)
     rows = cursor.fetchall()
     conn.close()
 
@@ -39,7 +54,6 @@ def search_resources(query):
     vectorizer = TfidfVectorizer(stop_words="english")
     tfidf_matrix = vectorizer.fit_transform(combined_texts)
     
-
     # Compute similarity scores for the query
     query_vec = vectorizer.transform([query])
     similarity_scores = (tfidf_matrix @ query_vec.T).toarray().ravel()
@@ -69,15 +83,21 @@ def search_resources(query):
 
     return results
 
-# Flask route to handle search queries
+# Flask route to handle search queries with optional tags filter
 @app.route('/search', methods=['GET'])
 def search_endpoint():
-    query = request.args.get('query', '')
+    query = request.args.get('query','')
+    tags_filter = request.args.getlist('tags[]')
+
+    print(f"Query: {query}")
+    print(f"Tags Filter: {tags_filter}")
+
     if not query:
         return jsonify({"error": "Query parameter is required"}), 400
 
-    results = search_resources(query)
+    results = search_resources(query, tags_filter)
     return jsonify(results[:10]), 200
+
 
 # Combined function to calculate weighted score based on matching tags and popularity
 def calculate_weighted_score(resource_tags, user_preferences, popularity_score):
@@ -96,7 +116,7 @@ def fetch_resources():
         return jsonify({"error": "User ID is required"}), 400
     
     # Fetch user preferences from the database based on user_id
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT preferences FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
@@ -168,7 +188,7 @@ def create_user():
 
     # Store the user in the database
     try:
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO users (email, name, password, preferences) VALUES (?, ?, ?, ?)",
@@ -198,7 +218,7 @@ def authenticate_user():
         return jsonify({"error": "Email and password are required"}), 400
 
     # Authenticate the user
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT id, email, password FROM users WHERE email = ? AND password = ?", (email, password))
     user = cursor.fetchone()
@@ -244,7 +264,7 @@ def token_required(f):
 def get_user_details():
     user = request.user
     try:
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT id, email, name, preferences FROM users WHERE id = ?", (user["user_id"],))
         user = cursor.fetchone()
@@ -275,7 +295,7 @@ def add_user_source_interaction():
 
     # Store the user interaction in the database
     try:
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO user_source_interaction (user_id, resource_url) VALUES (?, ?)",
@@ -295,7 +315,7 @@ def add_user_source_interaction():
 def get_user_history():
     user = request.user
     try:
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT resource_url FROM user_source_interaction WHERE user_id = ?", (user["user_id"],))
         interactions = cursor.fetchall()
@@ -308,7 +328,7 @@ def get_user_history():
     for interaction in interactions:
         data.append(interaction[0])
 
-    return jsonify(data[:10]), 200
+    return jsonify(data[::-1][:10]), 200
 
 # Run Flask app
 if __name__ == "__main__":

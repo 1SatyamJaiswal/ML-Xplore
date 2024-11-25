@@ -6,6 +6,13 @@ from selenium.webdriver.common.by import By
 from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
 import time
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_PATH = os.getenv('DATABASE_PATH', './database.db')
+
+DATABASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DATABASE_PATH))
 
 # Function to fetch all page URLs from resources
 def fetch_all_pages():

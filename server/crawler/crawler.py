@@ -7,6 +7,13 @@ from collections import deque
 import time
 import os
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_PATH = os.getenv('DATABASE_PATH', './database.db')
+
+DATABASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DATABASE_PATH))
 
 # Define keywords for each category
 category_keywords = {
@@ -26,7 +33,7 @@ def assign_tags(content):
 
 # Database setup
 def setup_database():
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resources (
@@ -55,7 +62,7 @@ def setup_database():
 
 # Insert a new resource into the database
 def store_resource(url, title, description, tags):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO resources (url, title, description, tags)
@@ -66,7 +73,7 @@ def store_resource(url, title, description, tags):
 
 # Insert a link between two pages in the database
 def store_link(source_url, destination_url):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         INSERT OR IGNORE INTO links (source_url, destination_url)
